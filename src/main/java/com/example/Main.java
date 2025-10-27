@@ -5,19 +5,24 @@ import org.hibernate.Transaction;
 
 public class Main {
     public static void main(String[] args) {
-        Session session = HibernateUtil.getSessionFactory().openSession();
-        Transaction tx = session.beginTransaction();
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Transaction tx = session.beginTransaction();
 
-        Student student = new Student();
-        student.setName("Juan Pérez");
-        student.setAge(20);
+            Student student1 = new Student();
+            student1.setName("Juan Pérez");
+            student1.setAge(20);
 
-        session.save(student);
-        tx.commit();
-        session.close();
+            Student student2 = new Student("María Gómez", 22);
 
-        System.out.println("Estudiante guardado con ID: " + student.getId());
-        
-        HibernateUtil.shutdown();
+            session.persist(student1);
+            session.persist(student2);
+            tx.commit();
+
+            System.out.println("Estudiante guardado con ID: " + student1.getId());
+            System.out.println("Estudiante guardado con ID: " + student2.getId());
+            
+        } finally {
+            HibernateUtil.shutdown();
+        }
     }
 }

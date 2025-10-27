@@ -1,9 +1,9 @@
 package com.example;
 
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 
 @Entity
 public class Student {
@@ -13,6 +13,16 @@ public class Student {
 
     private String name;
     private int age;
+
+    // Admite sobrecarga del constructor
+
+    public Student() {
+    }
+    
+    public Student(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
 
     // Getters and setters
     public Long getId() {
