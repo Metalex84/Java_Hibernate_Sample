@@ -1,20 +1,34 @@
 package com.example;
 
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import java.awt.GridLayout;
+import java.awt.HeadlessException;
+import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.table.DefaultTableModel;
+
+import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.query.Query;
-
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import java.awt.*;
-import java.util.List;
 
 public class Main extends JFrame {
     private JTextField txtId, txtName, txtAge;
     private JTable table;
     private DefaultTableModel tableModel;
-    private JButton btnCreate, btnRead, btnUpdate, btnDelete, btnRefresh;
-    private JButton btnSearchName, btnSearchAge, btnSort, btnCount, btnDeleteAll, btnUpdateAll, btnFilterAge;
+    private final JButton btnCreate, btnRead, btnUpdate, btnDelete, btnRefresh;
+    private final JButton btnSearchName, btnSearchAge, btnSort, btnCount, btnDeleteAll, btnUpdateAll, btnFilterAge;
 
     public Main() {
         setTitle("CRUD de Estudiantes con Hibernate");
@@ -139,20 +153,20 @@ public class Main extends JFrame {
 
         try {
             int age = Integer.parseInt(ageStr);
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Transaction tx = session.beginTransaction();
-
-            Student student = new Student(name, age);
-            session.persist(student);
-            tx.commit();
-            session.close();
+            Student student;
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                Transaction tx = session.beginTransaction();
+                student = new Student(name, age);
+                session.persist(student);
+                tx.commit();
+            }
 
             JOptionPane.showMessageDialog(this, "Estudiante creado con ID: " + student.getId(), "Éxito", JOptionPane.INFORMATION_MESSAGE);
             clearFields();
             refreshTable();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "La edad debe ser un número válido.", "Error", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, "Error al crear estudiante: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -166,10 +180,11 @@ public class Main extends JFrame {
         }
 
         try {
-            Long id = Long.parseLong(idStr);
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Student student = session.get(Student.class, id);
-            session.close();
+            Long id = Long.valueOf(idStr);
+            Student student;
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                student = session.get(Student.class, id);
+            }
 
             if (student != null) {
                 txtName.setText(student.getName());
@@ -180,7 +195,7 @@ public class Main extends JFrame {
             }
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "El ID debe ser un número válido.", "Error", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, "Error al leer estudiante: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -196,28 +211,28 @@ public class Main extends JFrame {
         }
 
         try {
-            Long id = Long.parseLong(idStr);
+            Long id = Long.valueOf(idStr);
             int age = Integer.parseInt(ageStr);
 
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Transaction tx = session.beginTransaction();
-
-            Student student = session.get(Student.class, id);
-            if (student != null) {
-                student.setName(name);
-                student.setAge(age);
-                session.merge(student);
-                tx.commit();
-                JOptionPane.showMessageDialog(this, "Estudiante actualizado.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
-                clearFields();
-                refreshTable();
-            } else {
-                JOptionPane.showMessageDialog(this, "No se encontró estudiante con ID: " + id, "Error", JOptionPane.ERROR_MESSAGE);
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                Transaction tx = session.beginTransaction();
+                
+                Student student = session.get(Student.class, id);
+                if (student != null) {
+                    student.setName(name);
+                    student.setAge(age);
+                    session.merge(student);
+                    tx.commit();
+                    JOptionPane.showMessageDialog(this, "Estudiante actualizado.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                    clearFields();
+                    refreshTable();
+                } else {
+                    JOptionPane.showMessageDialog(this, "No se encontró estudiante con ID: " + id, "Error", JOptionPane.ERROR_MESSAGE);
+                }
             }
-            session.close();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "ID y edad deben ser números válidos.", "Error", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, "Error al actualizar estudiante: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -231,7 +246,7 @@ public class Main extends JFrame {
         }
 
         try {
-            Long id = Long.parseLong(idStr);
+            Long id = Long.valueOf(idStr);
 
             int confirm = JOptionPane.showConfirmDialog(this, 
                 "¿Está seguro de eliminar el estudiante con ID " + id + "?", 
@@ -239,24 +254,24 @@ public class Main extends JFrame {
                 JOptionPane.YES_NO_OPTION);
 
             if (confirm == JOptionPane.YES_OPTION) {
-                Session session = HibernateUtil.getSessionFactory().openSession();
-                Transaction tx = session.beginTransaction();
-
-                Student student = session.get(Student.class, id);
-                if (student != null) {
-                    session.remove(student);
-                    tx.commit();
-                    JOptionPane.showMessageDialog(this, "Estudiante eliminado.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
-                    clearFields();
-                    refreshTable();
-                } else {
-                    JOptionPane.showMessageDialog(this, "No se encontró estudiante con ID: " + id, "Error", JOptionPane.ERROR_MESSAGE);
+                try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                    Transaction tx = session.beginTransaction();
+                    
+                    Student student = session.get(Student.class, id);
+                    if (student != null) {
+                        session.remove(student);
+                        tx.commit();
+                        JOptionPane.showMessageDialog(this, "Estudiante eliminado.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                        clearFields();
+                        refreshTable();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "No se encontró estudiante con ID: " + id, "Error", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
-                session.close();
             }
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "El ID debe ser un número válido.", "Error", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, "Error al eliminar estudiante: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -265,15 +280,16 @@ public class Main extends JFrame {
         tableModel.setRowCount(0);
 
         try {
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Query<Student> query = session.createQuery("FROM Student", Student.class);
-            List<Student> students = query.list();
-            session.close();
+            List<Student> students;
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                Query<Student> query = session.createQuery("FROM Student", Student.class);
+                students = query.list();
+            }
 
             for (Student student : students) {
                 tableModel.addRow(new Object[]{student.getId(), student.getName(), student.getAge()});
             }
-        } catch (Exception ex) {
+        } catch (HibernateException ex) {
             JOptionPane.showMessageDialog(this, "Error al cargar estudiantes: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -293,12 +309,13 @@ public class Main extends JFrame {
         }
         
         try {
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Query<Student> query = session.createQuery(
-                "FROM Student WHERE LOWER(name) LIKE LOWER(:name)", Student.class);
-            query.setParameter("name", "%" + searchName + "%");
-            List<Student> students = query.list();
-            session.close();
+            List<Student> students;
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                Query<Student> query = session.createQuery(
+                        "FROM Student WHERE LOWER(name) LIKE LOWER(:name)", Student.class);
+                query.setParameter("name", "%" + searchName + "%");
+                students = query.list();
+            }
             
             tableModel.setRowCount(0);
             for (Student student : students) {
@@ -309,7 +326,7 @@ public class Main extends JFrame {
                 "Se encontraron " + students.size() + " estudiante(s).", 
                 "Resultado", 
                 JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, 
                 "Error al buscar estudiantes: " + ex.getMessage(), 
                 "Error", 
@@ -336,13 +353,14 @@ public class Main extends JFrame {
                 int minAge = Integer.parseInt(txtMinAge.getText().trim());
                 int maxAge = Integer.parseInt(txtMaxAge.getText().trim());
                 
-                Session session = HibernateUtil.getSessionFactory().openSession();
-                Query<Student> query = session.createQuery(
-                    "FROM Student WHERE age BETWEEN :minAge AND :maxAge", Student.class);
-                query.setParameter("minAge", minAge);
-                query.setParameter("maxAge", maxAge);
-                List<Student> students = query.list();
-                session.close();
+                List<Student> students;
+                try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                    Query<Student> query = session.createQuery(
+                            "FROM Student WHERE age BETWEEN :minAge AND :maxAge", Student.class);
+                    query.setParameter("minAge", minAge);
+                    query.setParameter("maxAge", maxAge);
+                    students = query.list();
+                }
                 
                 tableModel.setRowCount(0);
                 for (Student student : students) {
@@ -358,7 +376,7 @@ public class Main extends JFrame {
                     "Las edades deben ser números válidos.", 
                     "Error", 
                     JOptionPane.ERROR_MESSAGE);
-            } catch (Exception ex) {
+            } catch (HeadlessException | HibernateException ex) {
                 JOptionPane.showMessageDialog(this, 
                     "Error al buscar estudiantes: " + ex.getMessage(), 
                     "Error", 
@@ -383,27 +401,18 @@ public class Main extends JFrame {
         }
         
         try {
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            String hql = "FROM Student ";
-            
-            switch (choice) {
-                case "Nombre (A-Z)":
-                    hql += "ORDER BY name ASC";
-                    break;
-                case "Nombre (Z-A)":
-                    hql += "ORDER BY name DESC";
-                    break;
-                case "Edad (Ascendente)":
-                    hql += "ORDER BY age ASC";
-                    break;
-                case "Edad (Descendente)":
-                    hql += "ORDER BY age DESC";
-                    break;
-            }
-            
+            List<Student> students;
+            try (var session = HibernateUtil.getSessionFactory().openSession()) {
+                String hql = "FROM Student ";
+                 switch (choice) {
+                    case "Nombre (A-Z)" -> hql += "ORDER BY name ASC";
+                    case "Nombre (Z-A)" -> hql += "ORDER BY name DESC";
+                    case "Edad (Ascendente)" -> hql += "ORDER BY age ASC";
+                    case "Edad (Descendente)" -> hql += "ORDER BY age DESC";
+                }
             Query<Student> query = session.createQuery(hql, Student.class);
-            List<Student> students = query.list();
-            session.close();
+            students = query.list();
+            }
             
             tableModel.setRowCount(0);
             for (Student student : students) {
@@ -414,7 +423,7 @@ public class Main extends JFrame {
                 "Estudiantes ordenados por: " + choice, 
                 "Éxito", 
                 JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, 
                 "Error al ordenar estudiantes: " + ex.getMessage(), 
                 "Error", 
@@ -425,16 +434,17 @@ public class Main extends JFrame {
     // 4. Contar total de estudiantes
     private void countStudents() {
         try {
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Query<Long> query = session.createQuery("SELECT COUNT(s) FROM Student s", Long.class);
-            Long count = query.uniqueResult();
-            session.close();
+            Long count;
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                Query<Long> query = session.createQuery("SELECT COUNT(s) FROM Student s", Long.class);
+                count = query.uniqueResult();
+            }
             
             JOptionPane.showMessageDialog(this, 
                 "Total de estudiantes en la base de datos: " + count, 
                 "Conteo Total", 
                 JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, 
                 "Error al contar estudiantes: " + ex.getMessage(), 
                 "Error", 
@@ -452,13 +462,12 @@ public class Main extends JFrame {
         
         if (confirm == JOptionPane.YES_OPTION) {
             try {
-                Session session = HibernateUtil.getSessionFactory().openSession();
-                Transaction tx = session.beginTransaction();
-                
-                int deletedCount = session.createMutationQuery("DELETE FROM Student").executeUpdate();
-                
-                tx.commit();
-                session.close();
+                int deletedCount;
+                try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                    Transaction tx = session.beginTransaction();
+                    deletedCount = session.createMutationQuery("DELETE FROM Student").executeUpdate();
+                    tx.commit();
+                }
                 
                 JOptionPane.showMessageDialog(this, 
                     "Se eliminaron " + deletedCount + " estudiante(s).", 
@@ -466,7 +475,7 @@ public class Main extends JFrame {
                     JOptionPane.INFORMATION_MESSAGE);
                 clearFields();
                 refreshTable();
-            } catch (Exception ex) {
+            } catch (HeadlessException | HibernateException ex) {
                 JOptionPane.showMessageDialog(this, 
                     "Error al eliminar todos los estudiantes: " + ex.getMessage(), 
                     "Error", 
@@ -483,37 +492,36 @@ public class Main extends JFrame {
         if (input == null || input.trim().isEmpty()) {
             return;
         }
+
+        int increment = Integer.parseInt(input.trim());
+
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+        Transaction tx = session.beginTransaction();
         
-        try {
-            int increment = Integer.parseInt(input.trim());
-            
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Transaction tx = session.beginTransaction();
-            
-            int updatedCount = session.createMutationQuery(
-                "UPDATE Student SET age = age + :increment")
-                .setParameter("increment", increment)
-                .executeUpdate();
-            
-            tx.commit();
-            session.close();
-            
-            JOptionPane.showMessageDialog(this, 
-                "Se actualizaron " + updatedCount + " estudiante(s).\nEdad incrementada en " + increment + " año(s).", 
-                "Éxito", 
-                JOptionPane.INFORMATION_MESSAGE);
-            refreshTable();
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, 
-                "Debe ingresar un número válido.", 
-                "Error", 
-                JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, 
-                "Error al actualizar edades: " + ex.getMessage(), 
-                "Error", 
-                JOptionPane.ERROR_MESSAGE);
-        }
+        int updatedCount = session.createMutationQuery(
+            "UPDATE Student SET age = age + :increment")
+            .setParameter("increment", increment)
+            .executeUpdate();
+        
+        tx.commit();
+        session.close();
+        
+        JOptionPane.showMessageDialog(this, 
+            "Se actualizaron " + updatedCount + " estudiante(s).\nEdad incrementada en " + increment + " año(s).", 
+            "Éxito", 
+            JOptionPane.INFORMATION_MESSAGE);
+        refreshTable();
+    } catch (NumberFormatException ex) {
+        JOptionPane.showMessageDialog(this, 
+            "Debe ingresar un número válido.", 
+            "Error", 
+            JOptionPane.ERROR_MESSAGE);
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(this, 
+            "Error al actualizar edades: " + ex.getMessage(), 
+            "Error", 
+            JOptionPane.ERROR_MESSAGE);
+    }
     }
     
     // 7. Búsqueda de mayores/menores que cierta edad
@@ -542,22 +550,17 @@ public class Main extends JFrame {
             String hql = "FROM Student WHERE ";
             
             switch (choice) {
-                case "Mayores que":
-                    hql += "age > :age";
-                    break;
-                case "Menores que":
-                    hql += "age < :age";
-                    break;
-                case "Igual a":
-                    hql += "age = :age";
-                    break;
+                case "Mayores que" -> hql += "age > :age";
+                case "Menores que" -> hql += "age < :age";
+                case "Igual a" -> hql += "age = :age";
             }
             
-            Session session = HibernateUtil.getSessionFactory().openSession();
-            Query<Student> query = session.createQuery(hql, Student.class);
-            query.setParameter("age", age);
-            List<Student> students = query.list();
-            session.close();
+            List<Student> students;
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                Query<Student> query = session.createQuery(hql, Student.class);
+                query.setParameter("age", age);
+                students = query.list();
+            }
             
             tableModel.setRowCount(0);
             for (Student student : students) {
@@ -573,7 +576,7 @@ public class Main extends JFrame {
                 "La edad debe ser un número válido.", 
                 "Error", 
                 JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
+        } catch (HeadlessException | HibernateException ex) {
             JOptionPane.showMessageDialog(this, 
                 "Error al filtrar estudiantes: " + ex.getMessage(), 
                 "Error", 
